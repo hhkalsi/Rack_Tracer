@@ -1,0 +1,220 @@
+#!/usr/bin/env python
+import json
+import sys
+import jsonrpclib
+import logging
+from pprint import pprint
+from jsonrpclib import Server
+import syslog
+import os
+import re
+import time
+import random
+switches = ["127.0.0.1"]
+
+def log(msg):
+    #Log message to stdout and logging file
+    syslog.openlog( 'my_hadoop_Log', 0, syslog.LOG_LOCAL4 )
+    syslog.syslog( '%% HADOOP-6-LOG: Log msg: %s' % msg )
+
+def file_update(ip_addr): # updating the configuration file
+    ip = []
+    rack = []
+    try:
+        '''f=os.popen("FastCli -p15 -c 'show banner login'")
+        m = re.findall('(?<=RACK-)\d+', f.read()) # if rack-id is mentioned in banner of the switch'''
+        m  = rack_id
+        print m
+        myfile = open("/mnt/flash/rack-topology.data", "r+")
+        if os.stat("/mnt/flash/rack-topology.data").st_size != 0 : # if file empty or not
+            line = myfile.readlines() # read the already existing content
+    
+        else:
+            for j in range(0,len(ip_addr)): # updating an empty file for the first time
+                myfile.write(ip_addr[j]+' '+m+'\n')
+            return;
+        for i in range(len(line)): # extracting the already present ip adresses and racks
+            x = line[i].split(" ")
+            ip.append(x[0])
+            rack.append(x[1])
+    
+        for j in range(0,len(ip_addr )):
+            count=0
+            for i in range(0,len(ip)):
+                if (ip_addr[j] == ip[i]) and (rack[i] == m+'\n') : # checking is ip adress to rack mapping is already present
+                    count = count+1
+                else:
+                    if (ip_addr[j] == ip[i]) and (rack[i] != m+'\n') : # if the ip adress to rack mapping is incorrect, delete the line
+                        for k in range(0,len(line)):
+                            if(ip[i] in line[k]):
+                                print line[k]
+                                del line[k]
+                                break
+            if count == 0:
+                print ip_addr[j]
+                line.append(ip_addr[j]+' '+m[0]+'\n') # add the new and updated mapping 
+            #print line
+        myfile = open("/mnt/flash/rack-topology.data", "w") # update the file 
+        myfile.write(''.join(line)) 
+    except (Exception,KeyboardInterrupt,IndexError) as e: # unlock the file if an exception occurs
+        fobj2=open('/mnt/flash/Locktest.txt','w')
+        fobj2.write('unlocked')
+        fobj2.close()
+        file_edit("/mnt/flash/Locktest.txt",user_server+'@'+server_ip+':'+file_path)
+        sys.exit(1)
+        
+def ip_address_fetch(local_port): # fetch the ip address of lldp neighbor for given port
+    ip_addr=[]
+    log("Running command show lldp neighbors "+local_port+" detail")
+    try:
+        result = switchReq.runCmds( 1, ["show lldp neighbors "+local_port+" detail"] ) # get the detailed lldp information for the given port
+        '''for i in range(0,int(vServer_no)):   
+            if (result[0]["lldpNeighbors"][local_port]["lldpNeighborInfo"][i]):
+                ip_addr.append(result[0]["lldpNeighbors"][local_port]["lldpNeighborInfo"][i]["managementAddresses"][0]["address"]) # ip adresses of multiple VMs in single physical server'''
+    except IndexError:
+        return ip_addr
+    except (KeyboardInterrupt) as e:
+        fobj2=open('/mnt/flash/Locktest.txt','w')
+        fobj2.write('unlocked')
+        fobj2.close()
+        file_edit("/mnt/flash/Locktest.txt",user_server+'@'+server_ip+':'+file_path)
+        errorResponse = json.loads(jsonrpclib.history.response)
+        log("Failed to run cmd:show lldp neighbors "+local_port+" detail . %s" %(errorResponse["error"]["data"][0]["errors"][-1]))
+        sys.exit(1)
+    else:
+        ip_addr = result[0]["lldpNeighbors"][local_port]["lldpNeighborInfo"][0]["managementAddresses"][0]["address"] # management ip adress of active neighbor on the given port
+        return ip_addr
+
+def lldp_ports():
+    log("Running command show lldp neighbors ")
+    try:
+        response = switchReq.runCmds( 1, ["show lldp neighbors"] ) # eapi to run show lldp neighbor on the switch
+    except (Exception,KeyboardInterrupt) as e: # unlock the file if an exception occurs
+        fobj2=open('/mnt/flash/Locktest.txt','w')
+        fobj2.write('unlocked')
+        fobj2.close()
+        file_edit("/mnt/flash/Locktest.txt",user_server+'@'+server_ip+':'+file_path)
+        log("Failed to run cmd:show lldp neighbors . %s" %e)
+        print "Error"
+        sys.exit(1) 
+    else:
+        ip_addr=[]
+        list1 = response[0]["lldpNeighbors"]  # extract the information for all active lldp ports
+        for i in range(0,len(list1)):
+            local_port=list1[i]["port"]
+            ip_addr = ip_addr + ip_address_fetch (local_port) # fetch the ip address for each active port
+            ip_addr.append(ip_address_fetch (local_port))
+        ip_addr = list(set(ip_addr))
+        #print ip_addr
+        file_update(ip_addr) # passing the ip adresses to update the file
+
+def access(): #Multiple switch access control (shared resource)
+    try:
+        while True:
+            file_edit(user_server+'@'+server_ip+':'+file_path + lockfile," /mnt/flash/") # check for lockfile
+            fobj=open('/mnt/flash/Locktest.txt','r') # flexible lockfile variable
+            line=fobj.readline()
+            words=line.split()
+            fobj.close()
+            r=random.randrange(1, int(wait_time))
+            time.sleep(r)
+    
+            if 'locked' in words: # check if access is denied
+    
+                log ("File already locked") # if denied log this
+                continue
+    
+            else:
+                if 'unlocked' in words: # check if access is permitted
+                    log("File is unlocked") 
+                    fobj1=open('/mnt/flash/Locktest.txt','w')
+                    fobj1.write('locked') # Lock the file 
+                    fobj1.close()
+                    log("Locking File")
+    
+                    file_edit("/mnt/flash/Locktest.txt",user_server+'@'+server_ip+':'+file_path) # push lockfile back to the server
+                    file_edit(user_server+'@'+server_ip+':'+file_path+topologyfile,"/mnt/flash/") # check for rack configuration file
+                    lldp_ports() # check for LLDP information
+                    file_edit("/mnt/flash/rack-topology.data",user_server+'@'+server_ip+':'+file_path) # push the updated configuration back to the server
+    
+                    fobj2=open('/mnt/flash/Locktest.txt','w')
+                    fobj2.write('unlocked') # unlock the file 
+                    fobj2.close()
+                    file_edit("/mnt/flash/Locktest.txt",user_server+'@'+server_ip+':'+file_path) # push lockfile back to the server
+                    log("File lock removed")
+                    break
+                else:
+                    log ("Please mention the correct keyword")
+                    break
+        return;
+    except (Exception,KeyboardInterrupt) as e: # unlock the file if an exception occurs
+        log("Error : %s" %e)
+        fobj2=open('/mnt/flash/Locktest.txt','w')
+        fobj2.write('unlocked')
+        fobj2.close()
+        file_edit("/mnt/flash/Locktest.txt",user_server+'@'+server_ip+':'+file_path)
+        sys.exit(1)
+
+
+def file_edit(from_path,to_path): #function to scp
+    try:
+        os.system("scp "+from_path+" "+to_path)
+        
+    except (Exception,KeyboardInterrupt) as e: # unlock the file if an exception occurs
+        log("Cannot copy file from "+ from_path+" to "+ to_path)
+        fobj2=open('/mnt/flash/Locktest.txt','w')
+        fobj2.write('unlocked')
+        fobj2.close()
+        file_edit("/mnt/flash/Locktest.txt",user_server+'@'+server_ip+':'+file_path)
+        sys.exit(1)
+    
+    return;
+
+def initialization():
+    try:
+        global passwd_switch # global variable declaration
+        global user_switch
+        global user_server
+        global vServer_no
+        global server_ip
+        global file_path
+        global topologyfile
+        global lockfile
+        global wait_time
+        global sleep_time
+        global rack_id
+        f = open("/mnt/flash/initialization.json") # opening json file containing user specification
+        j = json.load(f)
+        rack_id = j['Rack_ID']                  # rack_no. 
+        user_switch = j['Login_switch']         # username of the switch
+        passwd_switch = j['Password_switch']    # password for the coresponding user
+        user_server = j['Username_server']      # username of the namenode
+        '''vServer_no = j['vServer_no']           # no. of virtual machine in host servers if any'''
+        server_ip = j['IPaddress_server']       # ip address of namenode
+        file_path = j['File_path']              # file location of the configuration files in the server
+        lockfile = j['Lockfile']                # file used for handling multi-access
+        topologyfile = j['Rack_topology_file']  # rack-awareness configuration file
+        wait_time = j['Wait_time']              # timer to poll for the Lockfile
+        sleep_time = j['Sleep_time']            # time interval after which the script executes
+    except (Exception,KeyboardInterrupt) as e:
+        log(e)
+        fobj2=open('/mnt/flash/Locktest.txt','w')
+        fobj2.write('unlocked')
+        fobj2.close()
+        file_edit("/mnt/flash/Locktest.txt",user_server+'@'+server_ip+':'+file_path)
+        sys.exit(1)
+
+try:
+    while True:
+        initialization() # function call to initialize parameters
+        for switch in switches:
+            urlString = "https://{}:{}@{}/command-api".format(user_switch, passwd_switch, switch)
+            switchReq = Server( urlString )
+        access()
+        time.sleep(int(sleep_time)) # wait for the given sleep_time interval
+except Exception as e:
+    #print "Error : %s" %e
+    log("Error : %s" %e)
+except KeyboardInterrupt as e:
+    log("Error : %s" %e)
+    #print "Error : %s" %e

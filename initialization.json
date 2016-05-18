@@ -1,0 +1,14 @@
+{
+    "Rack_ID" : "India-BLR-Tower-A-01",
+    "Username_server" : "hduser",
+    "IPaddress_server" : "10.85.25.151",
+    "Login_switch" : "admin",
+    "Password_switch" : "admin" ,
+    "File_path" : "/usr/local/hadoop/etc/hadoop/",
+    "Rack_topology_file" : "rack-topology.data",
+    "Lockfile" : "Locktest.txt",
+    "Wait_time" : "10",
+    "Sleep_time" : "20",
+    "vServer_no" : "2",
+"Kindly note" : "Username of the user in the server, IPaddress of the server, File location of this file on the server, User Login of the switch, Password of the switch, Wait_time is the range for random time the switch will wait before access the Lockfile"
+}
