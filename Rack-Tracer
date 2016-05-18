@@ -17,7 +17,7 @@ def log(msg):
     syslog.openlog( 'my_hadoop_Log', 0, syslog.LOG_LOCAL4 )
     syslog.syslog( '%% HADOOP-6-LOG: Log msg: %s' % msg )
 
-def file_update(ip_addr): # updating the configuration file
+def file_update(ip_addr): # updating the configuration file, eliminating the duplicates and updating when there is topology change
     ip = []
     rack = []
     try:
