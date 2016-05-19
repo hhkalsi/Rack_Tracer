@@ -12,7 +12,10 @@ In order to install this extension:
 management api http-commands
     no shutdown
 ```
-
+Enable LLDP protocol on the switches and the servers in Hadoop cluster.
+```
+lldp run
+```
 The following are the parameters of the initialization.json file which must be entered before running the script
 
 * Username_server  is the username used to access the server
@@ -44,7 +47,7 @@ The following are the parameters of the initialization.json file which must be e
 ```
 Copy the 'Locktest.txt' and 'rack-topology.data' to the hadoop/etc/hadoop/ along with other configuration files in your namenode.
 
-***************************************************************************
+***
 Rack-Tracer can then be started using any of the following methods:
 
 1 - Execute directly from bash (from the switch, or a remote
@@ -59,13 +62,12 @@ Rack-Tracer can then be started using any of the following methods:
 ```
 (config)# alias Rack-Tracer bash /mnt/flash/Rack-Tracer
 ```
-
-
+***
 
 ## ASSUMPTIONS
 
 * The switch is compatible with JSON format and supports Python programming language and eAPI is enabled.
-* LLDP protocol should be enabled on all the hosts and the switches.
+* LLDP protocol should be enabled on all the servers and the switches.
 * Authentication ssh keys of the switches should be present on the hosts.
 * Each host has a IP address.
 * The topology follows the leaf-spine architecture.
@@ -75,10 +77,7 @@ Rack-Tracer can then be started using any of the following methods:
 * The file for accessing the critical section(Locktest.txt) should be present on the server.
 
 ## COMPATIBILITY 
-Version 1.0 has been developed using Python and JSON. It is tested on Arista's switches that support eapi.
-but should work on any system supporting Python 2.6 or
-later. Please reach out to support@aristanetworks.com for
-assistance if needed.
+Version 1.0 has been developed using Python and JSON. It is tested on Arista's switches that support json.
 
 ## LIMITATIONS
 
