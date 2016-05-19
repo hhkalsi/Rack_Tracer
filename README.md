@@ -42,7 +42,7 @@ The following are the parameters of the initialization.json file which must be e
     "vServer_no" : "2",
     }
 ```
-
+Copy the 'Locktest.txt' and 'rack-topology.data' to the namenode 
 Rack-Tracer can then be started using any of the following methods:
 
 1 - Execute directly from bash (from the switch, or a remote
